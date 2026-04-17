@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Goat Runner - Growing Obstacles</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #cce7ff;
+    overflow-x: hidden;
+  }
+  .game {
+    position: relative;
+    width: 800px;
+    height: 200px;
+    margin: 50px auto;
+    background: #fff;
+    border: 2px solid #333;
+    overflow: hidden;
+  }
+  #goat {
+    position: absolute;
+    bottom: 0;
+    left: 50px;
+    width: 50px;
+    height: 40px;
+    transition: left 0.3s ease; /* smooth horizontal movement */
+  }
+  /* Goat body */
+  #goat .body {
+    position: absolute;
+    bottom: 0;
+    left: 10px;
+    width: 30px;
+    height: 25px;
+    background: #d1c4a1;
+    border-radius: 15px 15px 15px 15px;
+  }
+  /* Goat head */
+  #goat .head {
+    position: absolute;
+    bottom: 18px;
+    left: 0;
+    width: 20px;
+    height: 20px;
+    background: #d1c4a1;
+    border-radius: 50%;
+    border: 1px solid #a39070;
+  }
+  /* Goat horns */
+  #goat .horn-left,
+  #goat .horn-right {
+    position: absolute;
+    bottom: 30px;
+    width: 6px;
+    height: 10px;
+    background: #9b8e6a;
+    border-radius: 3px;
+  }
+  #goat .horn-left {
+    left: 3px;
+    transform: rotate(-20deg);
+  }
+  #goat .horn-right {
+    left: 12px;
+    transform: rotate(20deg);
+  }
+  /* Goat eye */
+  #goat .eye {
+    position: absolute;
+    bottom: 25px;
+    left: 8px;
+    width: 5px;
+    height: 5px;
+    background: black;
+    border-radius: 50%;
+  }
+  /* Goat legs */
+  #goat .leg {
+    position: absolute;
+    bottom: 0;
+    width: 6px;
+    height: 15px;
+    background: #a39070;
+    border-radius: 3px;
+  }
+  #goat .leg1 { left: 10px; }
+  #goat .leg2 { left: 30px; }
+  /* Obstacles */
+  .obstacle {
+    position: absolute;
+    background-color: green;
+    bottom: 0;
+    left: 800px; /* start offscreen to the right */
+  }
+  #score {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-weight: bold;
+    font-size: 18px;
+    user-select: none;
+  }
+  #gameOverMessage {
+    position: absolute;
+    top: 80px;
+    width: 100%;
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    color: red;
+    display: none;
+  }
+  #restartBtn {
+    display: none;
+    position: absolute;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="game" id="gameArea">
+    <div id="goat">
+      <div class="body"></div>
+      <div class="head"></div>
+      <div class="horn-left"></div>
+      <div class="horn-right"></div>
+      <div class="eye"></div>
+      <div class="leg leg1"></div>
+      <div class="leg leg2"></div>
+    </div>
+    <div id="score">Score: 0</div>
+    <div id="gameOverMessage">Game Over!</div>
+    <button id="restartBtn">Restart</button>
+  </div>
+
+<script>
+  const goat = document.getElementById('goat');
+  const gameArea = document.getElementById('gameArea');
+  const scoreDisplay = document.getElementById('score');
+  const gameOverMessage = document.getElementById('gameOverMessage');
+  const restartBtn = document.getElementById('restartBtn');
+
+  let obstacles = [];
+  let gameSpeed = 6;
+  let jumpHeight = 40;      // small vertical jump initially
+  let jumpForwardDistance = 20; // how far goat moves forward on jump, initial small
+  let gravity = 5;
+  let isJumping = false;
+  let goatBottom = 0;
+  let score = 0;
+  let gameRunning = true;
+  const originalLeft = 50;  // starting left position in px
+
+  function jump() {
+    if (isJumping) return;
+    isJumping = true;
+    let velocity = jumpHeight;
+    // Move goat forward smoothly
+    goat.style.left = (originalLeft + jumpForwardDistance) + 'px';
+
+    const upInterval = setInterval(() => {
+      if (velocity <= 0) {
+        clearInterval(upInterval);
+        const downInterval = setInterval(() => {
+          if (goatBottom <= 0) {
+            goatBottom = 0;
+            goat.style.bottom = goatBottom + 'px';
+            clearInterval(downInterval);
+            // Move goat back to original position smoothly after landing
+            goat.style.left = originalLeft + 'px';
+            isJumping = false;
+          } else {
+            goatBottom -= gravity;
+            goat.style.bottom = goatBottom + 'px';
+          }
+        }, 20);
+      } else {
+        goatBottom += velocity;
+        goat.style.bottom = goatBottom + 'px';
+        velocity -= gravity;
+      }
+    }, 20);
+  }
+
+  document.addEventListener('keydown', e => {
+    if ((e.code === 'Space' || e.key === ' ') && gameRunning) {
+      e.preventDefault();
+      jump();
+    }
+  });
+
+  function createObstacle() {
+    if (!gameRunning) return;
+
+    const obstacle = document.createElement('div');
+    obstacle.classList.add('obstacle');
+
+    // Base size
+    let baseWidth = 20;
+    let baseHeight = 40;
+
+    // Increase size by score, capped to avoid crazy huge obstacles
+    // E.g. width increases 1px every 10 points, height increases 2px every 10 points
+    let extraWidth = Math.min(Math.floor(score / 10), 30);
+    let extraHeight = Math.min(Math.floor(score / 10) * 2, 60);
+
+    obstacle.style.width = (baseWidth + extraWidth) + 'px';
+    obstacle.style.height = (baseHeight + extraHeight) + 'px';
+
+    obstacle.style.left = '800px';
+    gameArea.appendChild(obstacle);
+    obstacles.push(obstacle);
+  }
+
+  function moveObstacles() {
+    obstacles.forEach((obs, index) => {
+      let obsLeft = parseInt(obs.style.left);
+
+      if (obsLeft < -obs.offsetWidth) {
+        obs.remove();
+        obstacles.splice(index, 1);
+        return;
+      }
+
+      obs.style.left = (obsLeft - gameSpeed) + 'px';
+
+      const goatRect = goat.getBoundingClientRect();
+      const obsRect = obs.getBoundingClientRect();
+
+      if (
+        goatRect.right > obsRect.left + 5 &&
+        goatRect.left < obsRect.right - 5 &&
+        goatRect.bottom > obsRect.top + 5 &&
+        goatRect.top < obsRect.bottom - 5
+      ) {
+        endGame();
+      }
+    });
+  }
+
+  function updateScore() {
+    if (!gameRunning) return;
+    score++;
+    scoreDisplay.textContent = 'Score: ' + score;
+
+    if (score % 15 === 0) {
+      gameSpeed += 1;
+      jumpHeight += 5;
+      jumpForwardDistance += 10; // increase forward jump distance
+    }
+  }
+
+  function endGame() {
+    gameRunning = false;
+    gameOverMessage.style.display = 'block';
+    restartBtn.style.display = 'inline-block';
+  }
+
+  restartBtn.addEventListener('click', () => {
+    location.reload();
+  });
+
+  function gameLoop() {
+    if (gameRunning) {
+      moveObstacles();
+      requestAnimationFrame(gameLoop);
+    }
+  }
+
+  let obstacleTimer = setInterval(() => {
+    if (gameRunning) createObstacle();
+  }, 2000);
+
+  let scoreTimer = setInterval(() => {
+    if (gameRunning) updateScore();
+  }, 1000);
+
+  requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
